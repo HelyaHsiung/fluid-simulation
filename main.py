@@ -14,7 +14,7 @@ timesteps = 1000
 # diffusion - diffusion of the gas
 # viscosity - viscosity of the gas
 # windNoise - how much the wind speed direction is changed as the simulation is unrolled (in degrees)
-# windNoiseTimestep - how ofteh the wind speed direction is changed as the simulation is unrolled
+# windNoiseTimestep - how often the wind speed direction is changed as the simulation is unrolled
 fs = FluidSimulation(64, windSpeed=0.1,
                      windDirection=60.0,
                      gasLocationX=32,
