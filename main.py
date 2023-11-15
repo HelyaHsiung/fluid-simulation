@@ -48,6 +48,7 @@ for i in range(0, timesteps, 10):
         cbar = plt.colorbar(sc, ax=ax)
     else:
         pass
+    fig.savefig("./snapshots/"+str(i)+".png", dpi=300)
     plt.pause(0.2)
     ax.cla()
     print("Render: "+str(i))
