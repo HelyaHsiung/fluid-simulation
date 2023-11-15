@@ -42,7 +42,7 @@ file = h5py.File("test.hdf5", "r")
 fig, ax = plt.subplots()
 plt.ion()
 for i in range(0, timesteps, 10):
-    # Show the gas concetration as an image
+    # Show the gas concentration as an image
     sc = ax.imshow(file['readings'+str(i)], vmin=0, vmax=10)
     if i == 0:
         cbar = plt.colorbar(sc, ax=ax)
