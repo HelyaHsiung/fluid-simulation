@@ -13,9 +13,9 @@ class FluidSimulation:
                  real_experiments=False, simulated_experiments=True, gasRelease=25, gasLocationX=10, gasLocationY=10,
                  realWindSpeedNoise=0.2, realWindDirectionNoise=0.2, acc_ratio=None, diffusion=0.000001, viscosity=0):
 
-        self.n = n
+        self.n = n  # size of the simulated image is n * n
 
-        self.dt = 0.2  # The simulation time-step
+        self.dt = 0.1  # The simulation time-step
         self.diffusion = diffusion  # The amount of diffusion
         self.viscosity = viscosity  # The fluid's viscosity
 
@@ -115,8 +115,8 @@ class FluidSimulation:
         return j + (self.n + 2) * i
 
     """
-     * Density step.
-     """
+    * Density step.
+    """
 
     def densityStep(self):
 
@@ -132,8 +132,8 @@ class FluidSimulation:
         self.dOld.fill(0)
 
     """
-     * Velocity step.
-     """
+    * Velocity step.
+    """
 
     def velocityStep(self):
         self.addSource(self.u, self.uOld)
@@ -167,53 +167,53 @@ class FluidSimulation:
         self.vOld.fill(0)
 
     """
-     * Resets the density.
-     """
+    * Resets the density.
+    """
 
     def resetDensity(self):
         self.d.fill(0)
 
     """
-     * Resets the velocity.
-     """
+    * Resets the velocity.
+    """
 
     def resetVelocity(self):
         self.v.fill(0.001)
         self.u.fill(0.001)
 
     """
-     * Swap velocity x reference.
-     """
+    * Swap velocity x reference.
+    """
 
     def swapU(self):
         self.u, self.uOld = self.uOld, self.u
 
     """
-     * Swap velocity y reference.
-     """
+    * Swap velocity y reference.
+    """
 
     def swapV(self):
         self.v, self.vOld = self.vOld, self.v
 
     """
-     * Swap density reference.
-     """
+    * Swap density reference.
+    """
 
     def swapD(self):
         self.d, self.dOld = self.dOld, self.d
 
     """
-     * Integrate the density sources.
-     """
+    * Integrate the density sources.
+    """
 
     def addSource(self, x, s):
         x += s * self.dt
 
     """
-     * Calculate the curl at cell (i, j)
-     * This represents the vortex strength at the cell.
-     * Computed as: w = (del x U) where U is the velocity vector at (i, j).
-     """
+    * Calculate the curl at cell (i, j)
+    * This represents the vortex strength at the cell.
+    * Computed as: w = (del x U) where U is the velocity vector at (i, j).
+    """
 
     def curl(self, i, j):
         duDy = (self.u[self.fun_I(i, j + 1)] - self.u[self.fun_I(i, j - 1)]) * 0.5
@@ -222,11 +222,11 @@ class FluidSimulation:
         return duDy - dvDx
 
     """
-     * Calculate the vorticity confinement force for each cell.
-     * Fvc = (N x W) where W is the curl at (i, j) and N = del |W| / |del |W||.
-     * N is the vector pointing to the vortex center, hence we
-     * add force perpendicular to N.
-     """
+    * Calculate the vorticity confinement force for each cell.
+    * Fvc = (N x W) where W is the curl at (i, j) and N = del |W| / |del |W||.
+    * N is the vector pointing to the vortex center, hence we
+    * add force perpendicular to N.
+    """
 
     def vorticityConfinement(self, vcX, vcY):
 
@@ -256,18 +256,18 @@ class FluidSimulation:
                 vcY[self.fun_I(i, j)] = dx * v
 
     """
-     * Calculate the buoyancy force for the grid.
-     * Fbuoy = -a * d * Y + b * (T - Tamb) * Y where Y = (0,1)
-     * The constants a and b are positive with physically meaningful quantities.
-     * T is the temperature at the current cell, Tamb is the average temperature of the fluid grid
-     *
-     * In this simplified implementation we say that the temperature is synonymous with density
-     * and because there are no other heat sources we can just use the density field instead of adding a new
-     * temperature field.
-     *
-     * @param buoy {Array<Number>}
-     * @private
-     """
+    * Calculate the buoyancy force for the grid.
+    * Fbuoy = -a * d * Y + b * (T - Tamb) * Y where Y = (0,1)
+    * The constants a and b are positive with physically meaningful quantities.
+    * T is the temperature at the current cell, Tamb is the average temperature of the fluid grid
+    *
+    * In this simplified implementation we say that the temperature is synonymous with density
+    * and because there are no other heat sources we can just use the density field instead of adding a new
+    * temperature field.
+    *
+    * @param buoy {Array<Number>}
+    * @private
+    """
 
     def buoyancy(self, buoy):
         tAmb = 0
@@ -292,12 +292,12 @@ class FluidSimulation:
         # For each cell compute buoyancy force
         for i in range(self.n):
             for j in range(self.n):
-                buoy[self.fun_I(self.n, i, j)] = a * self.d[self.fun_I(self.n, i, j)] + -b * (
-                        self.d[self.fun_I(self.n, i, j)] - tAmb)
+                buoy[self.fun_I(i, j)] = a * self.d[self.fun_I(i, j)] + -b * (
+                        self.d[self.fun_I(i, j)] - tAmb)
 
     """
-     * Diffuse the density between neighbouring cells.
-     """
+    * Diffuse the density between neighbouring cells.
+    """
 
     def diffuse(self, b, x, x0, diffusion):
         a = self.dt * diffusion * self.n * self.n
@@ -305,10 +305,10 @@ class FluidSimulation:
         self.linearSolve(b, x, x0, a, 1 + 4 * a)
 
     """
-     * The advection step moves the density through the static velocity field.
-     * Instead of moving the cells forward in time, we treat the cell's center as a particle
-     * and then trace it back in time to look for the 'particles' which end up at the cell's center.
-     """
+    * The advection step moves the density through the static velocity field.
+    * Instead of moving the cells forward in time, we treat the cell's center as a particle
+    * and then trace it back in time to look for the 'particles' which end up at the cell's center.
+    """
 
     def advect(self, b, d, d0, u, v):
 
@@ -371,20 +371,20 @@ class FluidSimulation:
         self.setBoundary(b, d)
 
     """
-     * Forces the velocity field to be mass conserving.
-     * This step is what actually produces the nice looking swirly vortices.
-     *
-     * It uses a result called Hodge Decomposition which says that every velocity field is the sum
-     * of a mass conserving field, and a gradient field. So we calculate the gradient field, and subtract
-     * it from the velocity field to get a mass conserving one.
-     * It solves a linear system of equations called Poisson Equation.
-     *
-     * @param u:Array<Number>}
-     * @param v:Array<Number>}
-     * @param p:Array<Number>}
-     * @param div:Array<Number>}
-     * @private
-     """
+    * Forces the velocity field to be mass conserving.
+    * This step is what actually produces the nice looking swirly vortices.
+    *
+    * It uses a result called Hodge Decomposition which says that every velocity field is the sum
+    * of a mass conserving field, and a gradient field. So we calculate the gradient field, and subtract
+    * it from the velocity field to get a mass conserving one.
+    * It solves a linear system of equations called Poisson Equation.
+    *
+    * @param u:Array<Number>}
+    * @param v:Array<Number>}
+    * @param p:Array<Number>}
+    * @param div:Array<Number>}
+    * @private
+    """
 
     def project(self, u, v, p, div):
 
@@ -433,15 +433,15 @@ class FluidSimulation:
         self.setBoundary(self.BOUNDARY_TOP_BOTTOM, v)
 
     """
-     * Solve a linear system of equations using Gauss-Seidel method.
-     *
-     * @param b:Number}
-     * @param x:Array<Number>}
-     * @param x0:Array<Number>}
-     * @param a:Number}
-     * @param c:Number}
-     * @private
-     """
+    * Solve a linear system of equations using Gauss-Seidel method.
+    *
+    * @param b:Number}
+    * @param x:Array<Number>}
+    * @param x0:Array<Number>}
+    * @param a:Number}
+    * @param c:Number}
+    * @private
+    """
 
     def linearSolve(self, b, x, x0, a, c):
         invC = 1.0 / c
@@ -469,33 +469,33 @@ class FluidSimulation:
             self.setBoundary(b, x)
 
     """
-     * Set boundary conditions.
-     *
-     * @param b:Number}
-     * @param x:Array<Number>}
-     * @private
-     """
+    * Set boundary conditions.
+    *
+    * @param b:Number}
+    * @param x:Array<Number>}
+    * @private
+    """
 
     def setBoundary(self, b, x):
 
         # i = np.arange(1,self.n+1)
 
-        if (b == self.BOUNDARY_LEFT_RIGHT):
+        if b == self.BOUNDARY_LEFT_RIGHT:
             x[self.fun_I(0, self.i)] = -x[self.fun_I(1, self.i)]
         else:
             x[self.fun_I(0, self.i)].fill(0.0)
 
-        if (b == self.BOUNDARY_LEFT_RIGHT):
+        if b == self.BOUNDARY_LEFT_RIGHT:
             x[self.fun_I(self.n + 1, self.i)] = -x[self.fun_I(self.n, self.i)]
         else:
             x[self.fun_I(self.n + 1, self.i)].fill(0.0)
 
-        if (b == self.BOUNDARY_TOP_BOTTOM):
+        if b == self.BOUNDARY_TOP_BOTTOM:
             x[self.fun_I(self.i, 0)] = -x[self.fun_I(self.i, 1)]
         else:
             x[self.fun_I(self.i, 0)].fill(0.0)
 
-        if (b == self.BOUNDARY_TOP_BOTTOM):
+        if b == self.BOUNDARY_TOP_BOTTOM:
             x[self.fun_I(self.i, self.n + 1)] = -x[self.fun_I(self.i, self.n)]
         else:
             x[self.fun_I(self.i, self.n + 1)].fill(0.0)
@@ -526,17 +526,17 @@ class FluidSimulation:
         # Step the fluid simulation
         self.velocityStep()
         self.densityStep()
-        if (self.real_experiments == True):
-            import pdb;
+        if self.real_experiments:
+            import pdb
             pdb.set_trace()
             earlier_timesteps = self.time_points[self.time_points < self.current_timestep]
             latest_ealier = len(earlier_timesteps)
             # print (latest_ealier)
-            if (self.simulated_experiments):
+            if self.simulated_experiments:
                 self.windDirection = self.wind_dir[latest_ealier]
             else:
                 self.windDirection = np.rad2deg(self.wind_dir[latest_ealier])
-            if (self.simulated_experiments):
+            if self.simulated_experiments:
                 self.windSpeed = self.wind_sp[latest_ealier]
             else:
                 # m/s to pixels/timestep
@@ -567,7 +567,7 @@ class FluidSimulation:
                 jj = int(j * acc)
                 self.uOld[self.fun_I(ii, jj)] = du
                 self.vOld[self.fun_I(ii, jj)] = dv
-                if (self.real_experiments == False):
+                if not self.real_experiments:
                     self.uOld[self.fun_I(ii, jj)] += self.randomWind()
                     self.vOld[self.fun_I(ii, jj)] += self.randomWind()
         # End update()

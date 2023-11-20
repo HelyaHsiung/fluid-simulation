@@ -1,9 +1,7 @@
 from fluidsimulation import *
 
-
 # How many timesteps in the simulation
 timesteps = 1000
-
 
 # Define the simulation
 # n - size of the simulation
