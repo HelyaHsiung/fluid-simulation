@@ -1,11 +1,5 @@
 import numpy as np
-import time
-import timeit
-import matplotlib.pyplot as plt
-import h5py
 import random
-from scipy import interpolate
-
 
 class FluidSimulation:
     def __init__(self, n, windDirection=180.0, windLocations=32, windSpeed=0.02, windNoise=10, windNoiseTimestep=300,
@@ -521,17 +515,12 @@ class FluidSimulation:
     def update(self, f):
         invMaxColor = 1.0 / 255
         self.dOld[int(self.fun_I(self.gasLocationX, self.gasLocationY))] = self.gasRelease
-        # print (self.d[self.I(10,10)])
-        start = time.time()
         # Step the fluid simulation
         self.velocityStep()
         self.densityStep()
         if self.real_experiments:
-            import pdb
-            pdb.set_trace()
             earlier_timesteps = self.time_points[self.time_points < self.current_timestep]
             latest_ealier = len(earlier_timesteps)
-            # print (latest_ealier)
             if self.simulated_experiments:
                 self.windDirection = self.wind_dir[latest_ealier]
             else:
@@ -556,7 +545,6 @@ class FluidSimulation:
             else:
                 rand = self.windNoiseCurrent
                 self.windNoiseCurrentStep += 1
-        # print (self.windDirection)
         du = np.sin(self.toRadians(self.windDirection + rand)) * self.windSpeed
         dv = np.cos(self.toRadians(self.windDirection + rand)) * self.windSpeed
         nps = self.windLocations
