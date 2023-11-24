@@ -8,11 +8,11 @@ timesteps = 1000
 # windSpeed - speed of the wind
 # windDirection - direction of the wind (in degrees)
 # gasLocationX/Y - location of the source of the leak
-# gasRelease - how much "particles" are released at the source
-# diffusion - diffusion of the gas
-# viscosity - viscosity of the gas
-# windNoise - how much the wind speed direction is changed as the simulation is unrolled (in degrees)
-# windNoiseTimestep - how often the wind speed direction is changed as the simulation is unrolled
+# gasRelease - how much "particles" are released at the source  源强
+# diffusion - diffusion of the gas  扩散系数
+# viscosity - viscosity of the gas  粘度
+# windNoise - how much the wind speed direction is changed as the simulation is unrolled (in degrees)  风向扰动噪声
+# windNoiseTimestep - how often the wind speed direction is changed as the simulation is unrolled      风向扰动时间间隔
 fs = FluidSimulation(64, windSpeed=0.1,
                      windDirection=60.0,
                      gasLocationX=32,
