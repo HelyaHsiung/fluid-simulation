@@ -1,3 +1,5 @@
+import h5py
+import matplotlib.pyplot as plt
 from fluidsimulation import *
 
 # How many timesteps in the simulation
@@ -20,7 +22,7 @@ fs = FluidSimulation(64, windSpeed=0.1,
                      gasRelease=300,
                      diffusion=0.0001,
                      viscosity=0,
-                     windNoise=180,
+                     windNoise=90,
                      windNoiseTimestep=30)
 
 
