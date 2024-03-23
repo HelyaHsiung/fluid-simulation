@@ -1,13 +1,15 @@
 import numpy as np
 import random
 
+
 class FluidSimulation:
-    def __init__(self, n, windDirection=180.0, windLocations=32, windSpeed=0.02, windNoise=10, windNoiseTimestep=300,
+    def __init__(self, m, n, windDirection=270.0, windLocationX=32, windLocationY=32, windSpeed=0.02, windNoise=10, windNoiseTimestep=300,
                  windLocalNoise=0.001, lat=None, lon=None, time_points=0, wind_dir=None, wind_sp=None,
                  real_experiments=False, simulated_experiments=True, gasRelease=25, gasLocationX=10, gasLocationY=10,
+                 emitDirection=270.0, emitSpeed=0.5,
                  realWindSpeedNoise=0.2, realWindDirectionNoise=0.2, acc_ratio=None, diffusion=0.000001, viscosity=0):
-
-        self.n = n  # size of the simulated image is n * n
+        self.m = m
+        self.n = n  # size of the simulated image is m * n
 
         self.dt = 0.1  # The simulation time-step
         self.diffusion = diffusion  # The amount of diffusion
@@ -20,14 +22,15 @@ class FluidSimulation:
         self.doBuoyancy = False
 
         # Two extra cells in each dimension for the boundaries
-        self.numOfCells = (n + 2) * (n + 2)
+        self.numOfCells = (m + 2) * (n + 2)
 
         self.tmp = None  # Scratch space for references swapping
 
         self.windSpeed = windSpeed
         self.windDirection = windDirection
         # self.windDirection = np.random.rand()*360
-        self.windLocations = windLocations
+        self.windLocationX = windLocationX
+        self.windLocationY = windLocationY
         # Change wind direction after N-th time steps
         self.windNoise = windNoise
         self.windNoiseTimestep = windNoiseTimestep
@@ -42,6 +45,8 @@ class FluidSimulation:
         self.gasRelease = gasRelease
         self.gasLocationX = int(gasLocationX)
         self.gasLocationY = int(gasLocationY)
+        self.emitDirection = emitDirection
+        self.emitSpeed = emitSpeed
         # Self might benefit from using typed arrays like Float32Array in some configuration.
         # But I haven't seen any significant improvement on Chrome because V8 probably does it on its own.
 
@@ -67,14 +72,14 @@ class FluidSimulation:
         self.BOUNDARY_NONE = 0
         self.BOUNDARY_LEFT_RIGHT = 1
         self.BOUNDARY_TOP_BOTTOM = 2
-        self.NUM_OF_CELLS = n  # Number of cells (not including the boundary)
+        self.NUM_OF_CELLSX = m
+        self.NUM_OF_CELLSY = n  # Number of cells (not including the boundary)
         self.VIEW_SIZE = 640  # View size (square)
         self.FPS = 60  # Frames per second
 
-        self.CELL_SIZE = self.VIEW_SIZE / self.NUM_OF_CELLS  # Size of each cell in pixels
-        self.CELL_SIZE_CEIL = np.ceil(self.CELL_SIZE)  # Size of each cell in pixels (ceiling)
+        self.CELL_SIZE_CEIL = 2  # Size of each cell in pixels (ceiling)
 
-        self.i = np.arange(1, self.n + 1)
+        self.i = np.arange(1, self.m + 1)
         self.j = np.arange(1, self.n + 1)
         ii, jj = np.meshgrid(self.i, self.j)
         self.ii = ii.ravel()
@@ -225,11 +230,11 @@ class FluidSimulation:
     def vorticityConfinement(self, vcX, vcY):
 
         # Calculate magnitude of curl(i, j) for each cell
-        for i in range(self.n):
+        for i in range(self.m):
             for j in range(self.n):
                 self.curlData[self.fun_I(i, j)] = np.abs(self.curl(i, j))
 
-        for i in range(self.n):
+        for i in range(self.m):
             for j in range(self.n):
                 # Calculate the derivative of the magnitude (n = del |w|)
                 dx = (self.curlData[self.fun_I(i + 1, j)] - self.curlData[self.fun_I(i - 1, j)]) * 0.5
@@ -281,10 +286,10 @@ class FluidSimulation:
             tAmb += self.d[i]
 
         # Calculate average temperature of the grid
-        tAmb /= (self.n * self.n)
+        tAmb /= (self.m * self.n)
 
         # For each cell compute buoyancy force
-        for i in range(self.n):
+        for i in range(self.m):
             for j in range(self.n):
                 buoy[self.fun_I(i, j)] = a * self.d[self.fun_I(i, j)] + -b * (
                         self.d[self.fun_I(i, j)] - tAmb)
@@ -294,7 +299,7 @@ class FluidSimulation:
     """
 
     def diffuse(self, b, x, x0, diffusion):
-        a = self.dt * diffusion * self.n * self.n
+        a = self.dt * diffusion * self.m * self.n
 
         self.linearSolve(b, x, x0, a, 1 + 4 * a)
 
@@ -305,8 +310,8 @@ class FluidSimulation:
     """
 
     def advect(self, b, d, d0, u, v):
-
-        dt0 = self.dt * self.n
+        dt0x = self.dt * self.m
+        dt0y = self.dt * self.n
         """
         i = np.arange(1,self.n+1)
         j = np.arange(1,self.n+1)
@@ -315,10 +320,10 @@ class FluidSimulation:
         jj = jj.flatten()
         Iij = self.I(ii, jj)
         """
-        x = self.ii - dt0 * u[self.Iij]
-        y = self.jj - dt0 * v[self.Iij]
+        x = self.ii - dt0x * u[self.Iij]
+        y = self.jj - dt0y * v[self.Iij]
         x[x < 0.5] = 0.5
-        x[x > self.n + 0.5] = self.n + 0.5
+        x[x > self.m + 0.5] = self.m + 0.5
         i0 = x.astype(int)
         i1 = i0 + 1
         y[y < 0.5] = 0.5
@@ -381,9 +386,9 @@ class FluidSimulation:
     """
 
     def project(self, u, v, p, div):
-
         # Calculate the gradient field
-        h = 1.0 / self.n
+        h = 1.0 / self.m
+        w = 1.0 / self.n
         """
         i = np.arange(1,self.n+1)
         j = np.arange(1,self.n+1)
@@ -396,7 +401,7 @@ class FluidSimulation:
         Iij2 = self.I(ii, jj + 1)
         Iij3 = self.I(ii, jj - 1)
         """
-        div[self.Iij] = -0.5 * h * (u[self.Iij0] - u[self.Iij1] + v[self.Iij2] - v[self.Iij3])
+        div[self.Iij] = -0.5 * (h * (u[self.Iij0] - u[self.Iij1]) + w * (v[self.Iij2] - v[self.Iij3]))
         p.fill(0.0)
 
         """
@@ -416,7 +421,7 @@ class FluidSimulation:
         # Subtract the gradient field from the velocity field to get a mass conserving velocity field.
 
         u[self.Iij] -= 0.5 * (p[self.Iij0] - p[self.Iij1]) / h
-        v[self.Iij] -= 0.5 * (p[self.Iij2] - p[self.Iij3]) / h
+        v[self.Iij] -= 0.5 * (p[self.Iij2] - p[self.Iij3]) / w
         """
         for i in range(self.n):
             for j in range(self.n):
@@ -471,28 +476,19 @@ class FluidSimulation:
     """
 
     def setBoundary(self, b, x):
-
-        # i = np.arange(1,self.n+1)
-
         if b == self.BOUNDARY_LEFT_RIGHT:
-            x[self.fun_I(0, self.i)] = -x[self.fun_I(1, self.i)]
-        else:
-            x[self.fun_I(0, self.i)].fill(0.0)
-
-        if b == self.BOUNDARY_LEFT_RIGHT:
-            x[self.fun_I(self.n + 1, self.i)] = -x[self.fun_I(self.n, self.i)]
-        else:
-            x[self.fun_I(self.n + 1, self.i)].fill(0.0)
-
-        if b == self.BOUNDARY_TOP_BOTTOM:
             x[self.fun_I(self.i, 0)] = -x[self.fun_I(self.i, 1)]
-        else:
-            x[self.fun_I(self.i, 0)].fill(0.0)
-
-        if b == self.BOUNDARY_TOP_BOTTOM:
             x[self.fun_I(self.i, self.n + 1)] = -x[self.fun_I(self.i, self.n)]
         else:
+            x[self.fun_I(self.i, 0)].fill(0.0)
             x[self.fun_I(self.i, self.n + 1)].fill(0.0)
+
+        if b == self.BOUNDARY_TOP_BOTTOM:
+            x[self.fun_I(0, self.j)] = -x[self.fun_I(1, self.j)]
+            x[self.fun_I(self.m + 1, self.j)] = -x[self.fun_I(self.m, self.j)]
+        else:
+            x[self.fun_I(0, self.j)].fill(0.0)
+            x[self.fun_I(self.m + 1, self.j)].fill(0.0)
 
         """
         for i in range(self.n):
@@ -506,15 +502,15 @@ class FluidSimulation:
         """
         x[self.fun_I(0, 0)] = 0.5 * (x[self.fun_I(1, 0)] + x[self.fun_I(0, 1)])
         x[self.fun_I(0, self.n + 1)] = 0.5 * (x[self.fun_I(1, self.n + 1)] + x[self.fun_I(0, self.n)])
-        x[self.fun_I(self.n + 1, 0)] = 0.5 * (x[self.fun_I(self.n, 0)] + x[self.fun_I(self.n + 1, 1)])
-        x[self.fun_I(self.n + 1, self.n + 1)] = 0.5 * (x[self.fun_I(self.n, self.n + 1)] + x[self.fun_I(self.n + 1, self.n)])
+        x[self.fun_I(self.m + 1, 0)] = 0.5 * (x[self.fun_I(self.m, 0)] + x[self.fun_I(self.m + 1, 1)])
+        x[self.fun_I(self.m + 1, self.n + 1)] = 0.5 * (x[self.fun_I(self.m, self.n + 1)] + x[self.fun_I(self.m + 1, self.n)])
 
     def toRadians(self, angle):
         return angle * (np.pi / 180)
 
     def update(self, f):
         invMaxColor = 1.0 / 255
-        self.dOld[int(self.fun_I(self.gasLocationX, self.gasLocationY))] = self.gasRelease
+        self.dOld[int(self.fun_I(self.gasLocationY, self.gasLocationX))] = self.gasRelease
         # Step the fluid simulation
         self.velocityStep()
         self.densityStep()
@@ -547,23 +543,28 @@ class FluidSimulation:
                 self.windNoiseCurrentStep += 1
         du = np.sin(self.toRadians(self.windDirection + rand)) * self.windSpeed
         dv = np.cos(self.toRadians(self.windDirection + rand)) * self.windSpeed
-        nps = self.windLocations
-        acc = self.NUM_OF_CELLS / nps
-        for i in range(nps):
-            for j in range(nps):
-                ii = int(i * acc)
-                jj = int(j * acc)
+        accx = self.NUM_OF_CELLSX / self.windLocationX
+        accy = self.NUM_OF_CELLSY / self.windLocationY
+        for i in range(self.windLocationX):
+            for j in range(self.windLocationY):
+                ii = int(i * accx)
+                jj = int(j * accy)
                 self.uOld[self.fun_I(ii, jj)] = du
                 self.vOld[self.fun_I(ii, jj)] = dv
                 if not self.real_experiments:
                     self.uOld[self.fun_I(ii, jj)] += self.randomWind()
                     self.vOld[self.fun_I(ii, jj)] += self.randomWind()
+        su = np.sin(self.toRadians(self.emitDirection)) * self.emitSpeed
+        sv = np.cos(self.toRadians(self.emitDirection)) * self.emitSpeed
+        for i in [-1, 0, 1]:
+            for j in [-1, 0, 1]:
+                self.uOld[self.fun_I(self.gasLocationY + i, self.gasLocationX + j)] += su
+                self.vOld[self.fun_I(self.gasLocationY + i, self.gasLocationX + j)] += sv
         # End update()
         # np.save('data/test' + str(self.index) + '.npy',self.d)
-        dset = f.create_dataset('readings' + str(self.index), (self.n, self.n), dtype='f', compression="gzip")
-        dset[...] = self.d.reshape(self.n + 2, self.n + 2)[1:self.n + 1, 1:self.n + 1]
-        dset = f.create_dataset('wind' + str(self.index), (1, 2), dtype='f', compression="gzip")
-        dset[...] = np.array([[self.windDirection + rand, self.windSpeed]])
+        dset = f.create_dataset('frame' + str(self.index), (self.m, self.n), dtype='f', compression="gzip")
+        density_map = self.d.reshape(self.m + 2, self.n + 2)[1:self.m + 1, 1:self.n + 1]
+        dset[...] = self.gasRelease * ((density_map - density_map.min()) / (density_map.max() - density_map.min()))
         self.index += 1
         self.active_step += 1
 
