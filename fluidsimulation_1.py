@@ -3,7 +3,7 @@ import numpy as np
 
 class FluidSimulation:
     def __init__(self, n=128,
-                 windDirection=0.0,
+                 windDirection=90.0,
                  windLocations=32,
                  windSpeed=0.04,
 
@@ -72,7 +72,7 @@ class FluidSimulation:
         self.BOUNDARY_TOP_BOTTOM = 2
         self.NUM_OF_CELLS = n # Number of cells (not including the boundary)
         self.VIEW_SIZE = 640    # View size (square)
-        self.FPS = 20           # Frames per second
+        self.FPS = 30           # Frames per second
 
         self.index = 0
         self.active_step = 0
@@ -230,7 +230,6 @@ class FluidSimulation:
      """
     def diffuse(self, b, x, x0, diffusion):
         a = self.dt * diffusion * self.n * self.n
-
         self.linearSolve(b, x, x0, a, 1 + 4 * a)
 
     """
@@ -353,16 +352,13 @@ class FluidSimulation:
         self.velocityStep()
         self.densityStep()
 
-        du = np.sin(self.toRadians(self.windDirection - 180))*self.windSpeed
-        dv = np.cos(self.toRadians(self.windDirection - 180))*self.windSpeed
-        nps = self.windLocations
-        acc = self.NUM_OF_CELLS/nps
-        for i in range(nps):
-            for j in range(nps):
-                ii = int(i*acc)
-                jj = int(j*acc)
-                self.uOld[self.I(ii, jj)] = du
-                self.vOld[self.I(ii, jj)] = dv
+        du = np.cos(self.toRadians(self.windDirection))*self.windSpeed
+        dv = np.sin(self.toRadians(self.windDirection))*self.windSpeed
+
+        acc = self.NUM_OF_CELLS / self.windLocations
+        jj, ii = np.meshgrid(np.arange(0, self.NUM_OF_CELLS, int(acc)), np.arange(0, self.NUM_OF_CELLS, int(acc)))
+        self.uOld[self.I(ii.ravel(), jj.ravel())] = du
+        self.vOld[self.I(ii.ravel(), jj.ravel())] = dv
 
         dset = f.create_dataset('frame' + str(self.index), (self.n, self.n), dtype='f', compression="gzip")
         density_map = self.d.reshape(self.n + 2, self.n + 2)[1:self.n + 1, 1:self.n + 1]

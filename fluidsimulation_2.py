@@ -29,7 +29,7 @@ class FluidSimulation:
         self.n = n
         self.NUM_OF_CELLS = n   # Number of cells (not including the boundary)
         self.VIEW_SIZE = 640    # View size (square)
-        self.FPS = 60           # Frames per second
+        self.FPS = 30           # Frames per second
 
         self.CELL_SIZE = self.VIEW_SIZE / self.NUM_OF_CELLS  # Size of each cell in pixels
         self.CELL_SIZE_CEIL = np.ceil(self.CELL_SIZE) # Size of each cell in pixels (ceiling)

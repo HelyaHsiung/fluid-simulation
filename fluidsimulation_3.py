@@ -73,7 +73,7 @@ class FluidSimulation:
         self.NUM_OF_CELLSX = n
         self.NUM_OF_CELLSY = m  # Number of cells (not including the boundary)
         self.VIEW_SIZE = 640  # View size (square)
-        self.FPS = 20  # Frames per second
+        self.FPS = 30  # Frames per second
 
         """
         self.CELL_SIZE_CEIL = 2  # Size of each cell in pixels (ceiling)
