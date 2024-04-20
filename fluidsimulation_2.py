@@ -5,27 +5,27 @@ import random
 class FluidSimulation:
     def __init__(self,
                  n=128,
-                 windDirection=0.0,
-                 windLocations=32,
-                 windSpeed=0.04,
-                 windNoise=10,
-                 windNoiseTimestep=300,
-                 windLocalNoise=0.001,
-                 lat=None,
-                 lon=None,
-                 time_points=0,
-                 wind_dir=None,
-                 wind_sp=None,
-                 real_experiments=False,
-                 simulated_experiments=True,
-                 gasRelease=5500,
+                 gasRelease=55,
                  gasLocationX=64,
                  gasLocationY=64,
-                 realWindSpeedNoise=0.2,
-                 realWindDirectionNoise=0.2,
-                 acc_ratio=None,
                  diffusion=0.0001,
-                 viscosity=0):
+                 viscosity=0,
+
+                 windLocations=32,
+
+                 simu_wind_step=50,
+                 simu_windDirection=0.0,
+                 simu_windSpeed=0.04,
+                 simu_windDirectionNoise_range=20,  # degree
+                 simu_windSpeedNoise_range=0.2,  # percent
+
+                 real_experiments=False,
+                 real_time_points=np.array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]),
+                 real_windDirection=np.array([11, 12, 40, 33, 180, 22, 90, 33, 1, 270, 200]),
+                 real_windSpeed=np.array([0.01, 0.02, 0.03, 0.04, 0.03, 0.02, 0.01, 0.1, 0.001, 0.05, 0.01]),
+                 real_windDirectionNoise_range=6,  # degree
+                 real_windSpeedNoise_range=0.1  # percent
+                 ):
         self.n = n
         self.NUM_OF_CELLS = n   # Number of cells (not including the boundary)
         self.VIEW_SIZE = 640    # View size (square)
@@ -34,20 +34,29 @@ class FluidSimulation:
         self.CELL_SIZE = self.VIEW_SIZE / self.NUM_OF_CELLS  # Size of each cell in pixels
         self.CELL_SIZE_CEIL = np.ceil(self.CELL_SIZE) # Size of each cell in pixels (ceiling)
 
+        # Two extra cells in each dimension for the boundaries
+        self.numOfCells = (n + 2) * (n + 2)
+
         self.i = np.arange(1, self.n+1)
         self.j = np.arange(1, self.n+1)
         ii, jj = np.meshgrid(self.i, self.j)
         self.ii = ii.ravel()
         self.jj = jj.ravel()
-        self.Iij = self.I(self.ii, self.jj)
-        self.Iij0 = self.I(self.ii + 1, self.jj)
-        self.Iij1 = self.I(self.ii - 1, self.jj)
-        self.Iij2 = self.I(self.ii, self.jj + 1)
-        self.Iij3 = self.I(self.ii, self.jj - 1)
 
-        self.dt = 0.1 # The simulation time-step
+        self.Iij = self.I(self.ii, self.jj)
+
+        self.Iij0 = self.I(self.ii - 1, self.jj)
+        self.Iij1 = self.I(self.ii + 1, self.jj)
+        self.Iij2 = self.I(self.ii, self.jj - 1)
+        self.Iij3 = self.I(self.ii, self.jj + 1)
+
+        self.gasRelease = gasRelease
+        self.gasLocationX = int(gasLocationX)
+        self.gasLocationY = int(gasLocationY)
         self.diffusion = diffusion # The amount of diffusion
         self.viscosity = viscosity # The fluid's viscosity
+
+        self.dt = 0.1 # The simulation time-step
 
         # Number of iterations to use in the Gauss-Seidel method in linearSolve()
         self.iterations = 10
@@ -55,35 +64,25 @@ class FluidSimulation:
         self.doVorticityConfinement = True
         self.doBuoyancy = False
 
-        # Two extra cells in each dimension for the boundaries
-        self.numOfCells = (n + 2) * (n + 2)
-
-        self.tmp = None # Scratch space for references swapping
-
-        self.windSpeed = windSpeed
-        self.windDirection = windDirection
-        #self.windDirection = np.random.rand()*360
+        
         self.windLocations = windLocations
         # Change wind direction after N-th timesteps
-        self.windNoise = windNoise
-        self.windNoiseTimestep = windNoiseTimestep
-        self.windNoiseCurrentStep = self.windNoiseTimestep
-        self.windNoiseCurrent = 0
-        # Local noise at each location
-        self.windLocalNoise = windLocalNoise
+        self.simu_wind_step = simu_wind_step
+        self.simu_windDirection = simu_windDirection
+        self.simu_windSpeed = simu_windSpeed
+        self.simu_windDirectionNoise_range = simu_windDirectionNoise_range
+        self.simu_windSpeedNoise_range = simu_windSpeedNoise_range
         # Real wind noise
-        self.realWindSpeedNoise = realWindSpeedNoise
-        self.realWindDirectionNoise = realWindDirectionNoise
-
-        self.gasRelease = gasRelease
-        self.gasLocationX = int(gasLocationX)
-        self.gasLocationY = int(gasLocationY)
-        # Self might benefit from using typed arrays like Float32Array in some configuration.
-        # But I haven't seen any significant improvement on Chrome because V8 probably does it on its own.
+        self.real_experiments = real_experiments
+        self.real_time_points = real_time_points
+        self.real_windDirection = real_windDirection
+        self.real_windSpeed = real_windSpeed
+        self.real_windDirectionNoise_range = real_windDirectionNoise_range
+        self.real_windSpeedNoise_range = real_windSpeedNoise_range
 
         # Values for current simulation step, and initialize everything to zero
-        self.u = np.zeros(self.numOfCells) * 0.001 # Velocity x
-        self.v = np.zeros(self.numOfCells) * 0.001 # Velocity y
+        self.u = np.zeros(self.numOfCells) # Velocity x
+        self.v = np.zeros(self.numOfCells) # Velocity y
         self.d = np.zeros(self.numOfCells) # Density
 
         # Values from the last simulation step
@@ -97,28 +96,13 @@ class FluidSimulation:
         self.BOUNDARY_NONE = 0
         self.BOUNDARY_LEFT_RIGHT = 1
         self.BOUNDARY_TOP_BOTTOM = 2
-        
-        self.index = 0
 
-        #Extra information added for experiments
-        self.lat = lat
-        self.lon = lon
-        if (simulated_experiments):
-            self.time_points = time_points
-        else:
-            self.time_points = time_points/self.dt
-        self.wind_dir = wind_dir
-        self.wind_sp = wind_sp
-        self.current_timestep = 0
-        self.real_experiments = real_experiments
-        self.simulated_experiments = simulated_experiments
-        self.acc_ratio = acc_ratio
-        self.active_step = 0
-        self.f = None
+        # counter
+        self.index_step = 0
 
-    def randomWind(self):
-        return (random.random()*2-1)*self.windLocalNoise
-
+    """
+    Index
+    """
     def I(self, i, j):
         return i + (self.n + 2) * j
 
@@ -323,7 +307,7 @@ class FluidSimulation:
         # Calculate the gradient field
         h = 1.0 / self.n
         
-        div[self.Iij] = -0.5 * h * (u[self.Iij0] - u[self.Iij1] + v[self.Iij2] - v[self.Iij3])
+        div[self.Iij] = -0.5 * h * (u[self.Iij1] - u[self.Iij0] + v[self.Iij3] - v[self.Iij2])
         
         p.fill(0.0)
 
@@ -334,8 +318,8 @@ class FluidSimulation:
         self.linearSolve(self.BOUNDARY_NONE, p, div, 1, 4)
 
         # Subtract the gradient field from the velocity field to get a mass conserving velocity field.
-        u[self.Iij] -= 0.5 * (p[self.Iij0] - p[self.Iij1]) / h
-        v[self.Iij] -= 0.5 * (p[self.Iij2] - p[self.Iij3]) / h
+        u[self.Iij] -= 0.5 * (p[self.Iij1] - p[self.Iij0]) / h
+        v[self.Iij] -= 0.5 * (p[self.Iij3] - p[self.Iij2]) / h
 
         self.setBoundary(self.BOUNDARY_LEFT_RIGHT, u)
         self.setBoundary(self.BOUNDARY_TOP_BOTTOM, v)
@@ -346,7 +330,7 @@ class FluidSimulation:
     def linearSolve(self, b, x, x0, a, c):
         invC = 1.0 / c
         for k in range(self.iterations):
-            x[self.Iij] = (x0[self.Iij] + a*(x[self.Iij1] + x[self.Iij0] + x[self.Iij3] + x[self.Iij2])) * invC
+            x[self.Iij] = (x0[self.Iij] + a*(x[self.Iij0] + x[self.Iij1] + x[self.Iij2] + x[self.Iij3])) * invC
             self.setBoundary(b, x)
 
     """
@@ -380,43 +364,28 @@ class FluidSimulation:
         # Step the fluid simulation
         self.velocityStep()
         self.densityStep()
-        if (self.real_experiments==True):
-            earlier_timesteps = self.time_points[self.time_points<self.current_timestep]
-            latest_ealier = len(earlier_timesteps)
-            if (self.simulated_experiments):
-                self.windDirection = self.wind_dir[latest_ealier]
-            else:
-                self.windDirection = np.rad2deg(self.wind_dir[latest_ealier])
-            if (self.simulated_experiments):
-                self.windSpeed = self.wind_sp[latest_ealier]
-            else:
-                self.windSpeed = self.wind_sp[latest_ealier]*self.n/100000
-            self.current_timestep += 1
-            self.activeDirectionNoise = random.random()*2*self.realWindDirectionNoise-self.realWindDirectionNoise
-            self.windDirection += self.activeDirectionNoise*360
-            self.activeSpeedNoise = random.random()*2*self.realWindSpeedNoise-self.realWindSpeedNoise
-            self.windSpeed += self.activeSpeedNoise*self.windSpeed
-            rand = 0
+        if self.real_experiments:
+            latest_ealier = np.sum(self.real_time_points<self.index_step)
+            windDirection = self.real_windDirection[latest_ealier]
+            windSpeed = self.real_windSpeed[latest_ealier]
+            windDirection += (random.random()*2 - 1) * self.real_windDirectionNoise_range
+            windSpeed *= (1 + (random.random()*2 - 1) * self.real_windSpeedNoise_range)
         else:
-            # Artificial wind field
-            if self.windNoiseCurrentStep == self.windNoiseTimestep:
-                    rand = (np.random.rand()*2 - 1)*self.windNoise
-                    self.windNoiseCurrent = rand
-                    self.windNoiseCurrentStep = 0
+            if self.index_step % self.simu_wind_step == 0:
+                self.simu_windDirectionNoise_cur = (random.random()*2 - 1) * self.simu_windDirectionNoise_range
+                self.simu_windSpeedNoise_cur = (random.random()*2 - 1) * self.simu_windSpeedNoise_range
             else:
-                    rand = self.windNoiseCurrent
-                    self.windNoiseCurrentStep += 1
-        #print (self.windDirection)
-        du = np.sin(self.toRadians(self.windDirection + rand))*self.windSpeed
-        dv = np.cos(self.toRadians(self.windDirection + rand))*self.windSpeed
-
+                pass
+            windDirection = self.simu_windDirection + self.simu_windDirectionNoise_cur
+            windSpeed = self.simu_windSpeed * (1 + self.simu_windSpeedNoise_cur)
+        
+        print(f"wind_direction:{windDirection}; wind_speed:{windSpeed}")
         acc = self.NUM_OF_CELLS / self.windLocations
-        jj, ii = np.meshgrid(np.arange(0, self.NUM_OF_CELLS, int(acc)), np.arange(0, self.NUM_OF_CELLS, int(acc)))
-        self.uOld[self.I(ii.ravel(), jj.ravel())] = du if self.real_experiments else du + self.randomWind()
-        self.vOld[self.I(ii.ravel(), jj.ravel())] = dv if self.real_experiments else dv + self.randomWind()
+        ii, jj = np.meshgrid(np.arange(0, self.NUM_OF_CELLS, int(acc)), np.arange(0, self.NUM_OF_CELLS, int(acc)))
+        self.uOld[self.I(ii.ravel(), jj.ravel())] = np.cos(self.toRadians(windDirection)) * windSpeed
+        self.vOld[self.I(ii.ravel(), jj.ravel())] = np.sin(self.toRadians(windDirection)) * windSpeed
 
-        dset = f.create_dataset('frame' + str(self.index), (self.n, self.n), dtype='f', compression="gzip")
+        dset = f.create_dataset('frame' + str(self.index_step), (self.n, self.n), dtype='f', compression="gzip")
         density_map = self.d.reshape(self.n + 2, self.n + 2)[1:self.n + 1, 1:self.n + 1]
         dset[...] = self.gasRelease * ((density_map - density_map.min()) / (density_map.max() - density_map.min()))
-        self.index += 1
-        self.active_step +=1
+        self.index_step += 1

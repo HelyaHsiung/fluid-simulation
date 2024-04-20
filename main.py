@@ -1,10 +1,10 @@
+import cv2
 import h5py
-import matplotlib.pyplot as plt
-from fluidsimulation_2 import *
+import numpy as np
+from fluidsimulation_2 import FluidSimulation
 
 # How many timesteps in the simulation
-plt.ion()
-timesteps = 500
+timesteps = 600
 
 # Define the simulation
 # n - size of the simulation
@@ -32,18 +32,20 @@ print("Simulation Done!")
 file = h5py.File("test.hdf5", "r")
 
 # Visualize the data - every 10th image is shown
-fig, ax = plt.subplots()
-plt.ion()
+cv2.namedWindow("Gas", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("Gas", 480, 480)
 for i in range(0, timesteps, 10):
-    # Show the gas concentration as an image
-    sc = ax.imshow(file['frame'+str(i)], vmin=0, vmax=fs.gasRelease, cmap='Reds')
-    if i == 0:
-        cbar = plt.colorbar(sc, ax=ax)
-    else:
-        pass
-    fig.savefig("./snapshots/"+str(i)+".png", dpi=300)
-    plt.pause(0.0001)
-    ax.cla()
-plt.close(fig)
+    img = np.array(file[f'frame{i}'])
+    R = (255 * (img - img.min()) / (img.max() - img.min())).astype(np.uint8)
+    G = np.zeros_like(R, dtype=np.uint8)
+    B = np.zeros_like(R, dtype=np.uint8)
+    BGR = cv2.merge([B, G, R])
+    cv2.putText(BGR, f"{i//fs.FPS} s", (5, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.25, (0, 255, 255), 1, 0, False)
+    cv2.imwrite(f"./snapshots/{i:03d}.png", BGR)
+    cv2.imshow("Gas", BGR)
+    key = 0xFF & cv2.waitKey(200)
+    if key == ord('q'):
+        break
 
+cv2.destroyWindow("Gas")
 print("All Job Were Done!")
