@@ -1,9 +1,10 @@
 # dir 不需要提交的目录
-./__pycache__
-./snapshots
+__pycache__
+snapshots
+.vscode
 
 # file 不需要提交的文件
-./test.hdf5
+test.hdf5
 
 # log 不需要提交的任意包含后缀名为log的文件
 # *.log
