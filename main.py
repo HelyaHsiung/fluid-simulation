@@ -4,7 +4,7 @@ import numpy as np
 from fluidsimulation import FluidSimulation
 
 # How many timesteps in the simulation
-timesteps = 2000
+timesteps = 1000
 
 fs = FluidSimulation()
 
