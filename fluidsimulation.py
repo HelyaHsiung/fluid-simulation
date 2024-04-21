@@ -21,9 +21,9 @@ class FluidSimulation:
                  simu_windSpeedNoise_range=0.3,     # percent
 
                  real_experiments=False,
-                 real_time_points=np.array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]),
-                 real_windDirection=np.array([11, 12, 40, 33, 180, 22, 90, 33, 1, 270, 200]),
-                 real_windSpeed=np.array([0.01, 0.02, 0.03, 0.04, 0.03, 0.02, 0.01, 0.1, 0.001, 0.05, 0.01]),
+                 real_time_points=np.array([0, 10, 20, 30, 40, 50, 60, 70, 80, 90]),
+                 real_windDirection=np.array([11, 12, 40, 33, 180, 22, 90, 33, 1, 270]),
+                 real_windSpeed=np.array([0.01, 0.02, 0.03, 0.04, 0.03, 0.02, 0.01, 0.1, 0.001, 0.05]),
                  real_windDirectionNoise_range=6,   # degree
                  real_windSpeedNoise_range=0.1      # percent
                  ):
@@ -359,7 +359,7 @@ class FluidSimulation:
         self.velocityStep()
         self.densityStep()
         if self.real_experiments:
-            latest_ealier = np.sum(self.real_time_points<self.index_step)
+            latest_ealier = np.sum(self.real_time_points<=self.index_step) - 1
             windDirection = self.real_windDirection[latest_ealier]
             windSpeed = self.real_windSpeed[latest_ealier]
             windDirection += (random.random()*2 - 1) * self.real_windDirectionNoise_range
