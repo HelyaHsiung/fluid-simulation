@@ -56,7 +56,7 @@ class FluidSimulation:
         self.dt = 0.1 # The simulation time-step
 
         # Number of iterations to use in the Gauss-Seidel method in linearSolve()
-        self.iterations = 30
+        self.iterations = 20
 
         # Add details
         self.doVorticityConfinement = True
@@ -376,7 +376,7 @@ class FluidSimulation:
         self.uOld[self.wind_Locations] = np.cos(self.toRadians(windDirection)) * windSpeed
         self.vOld[self.wind_Locations] = np.sin(self.toRadians(windDirection)) * windSpeed
 
-        dset = f.create_dataset(f"frame{self.index_step}", (self.h, self.w), dtype='f', compression="gzip")
+        dset = f.create_dataset(f"frame{self.index_step:03d}", (self.h, self.w), dtype='f', compression="gzip")
         density_map = self.d.reshape((self.h + 2, self.w + 2))[1:self.h + 1, 1:self.w + 1]
         dset[...] = self.gasRelease * ((density_map - density_map.min()) / (density_map.max() - density_map.min()))
         self.index_step += 1
