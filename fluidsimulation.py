@@ -17,15 +17,15 @@ class FluidSimulation:
                  simu_windDirection=0.0,
                  simu_windSpeed=0.04,
                  simu_wind_step=50,
-                 simu_windDirectionNoise_range=20,  # degree
+                 simu_windDirectionNoise_range=90,  # degree
                  simu_windSpeedNoise_range=0.3,     # percent
 
                  real_experiments=False,
                  real_time_points=np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 900]),
                  real_windDirection=np.array([11, 12, 40, 33, 180, 22, 90, 33, 1, 270]),
                  real_windSpeed=np.array([0.01, 0.02, 0.03, 0.04, 0.03, 0.02, 0.01, 0.1, 0.001, 0.05]),
-                 real_windDirectionNoise_range=6,   # degree
-                 real_windSpeedNoise_range=0.1      # percent
+                 real_windDirectionNoise_range=60,   # degree
+                 real_windSpeedNoise_range=0.2       # percent
                  ):
         self.w = width
         self.h = height
@@ -56,7 +56,7 @@ class FluidSimulation:
         self.dt = 0.1 # The simulation time-step
 
         # Number of iterations to use in the Gauss-Seidel method in linearSolve()
-        self.iterations = 10
+        self.iterations = 30
 
         # Add details
         self.doVorticityConfinement = True
