@@ -18,7 +18,7 @@ class FluidSimulation:
                  simu_windSpeed=0.04,
                  simu_wind_step=50,
                  simu_windDirectionNoise_range=90,  # degree
-                 simu_windSpeedNoise_range=0.3,     # percent
+                 simu_windSpeedNoise_range=0.2,     # percent
 
                  real_experiments=False,
                  real_time_points=np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 900]),
